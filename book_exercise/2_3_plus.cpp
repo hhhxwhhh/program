@@ -136,5 +136,6 @@ int main()
     glfwDestroyWindow(window);
     glfwTerminate();
     cout << "Bye~" << endl;
+    system("pause");
     return 0;
 }
