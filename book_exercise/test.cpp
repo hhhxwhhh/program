@@ -163,6 +163,7 @@ int main()
         }
     }
     glfwDestroyWindow(window);
+    // 释放资源
     glfwTerminate();
     return 0;
 }

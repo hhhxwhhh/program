@@ -2,7 +2,11 @@
   "configurations": [
     {
       "name": "windows-gcc-x86",
-      "includePath": ["${workspaceFolder}/**", "D:\\program\\MinGW\\include"],
+      "includePath": [
+        "${workspaceFolder}/**",
+        "D:\\program\\MinGW\\include",
+        "D:\\OpenGL\\program\\glm"
+      ],
       "compilerPath": "D:\\Program\\MinGW\\bin\\gcc.exe",
       "cStandard": "${default}",
       "cppStandard": "${default}",
