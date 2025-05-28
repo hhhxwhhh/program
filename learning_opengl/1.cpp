@@ -9,7 +9,8 @@
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
-const int NUM_PARTICLES = 2000;
+
+const int MAX_PARTICLES = 2000;
 // Window dimensions
 const GLuint WIDTH = 800, HEIGHT = 600;
 
@@ -24,7 +25,7 @@ struct Particle {
     Particle() : life(0.0f), size(0.0f) {}
 };
 
-// Shader sources
+// Shader sources for particles
 const GLchar* vertexShaderSource = R"(
 #version 330 core
 layout (location = 0) in vec2 aPos;
@@ -50,18 +51,52 @@ out vec4 FragColor;
 
 void main()
 {
-    if(particleColor.a < 0.1) // Discard transparent particles early
+    // Create circular particles
+    vec2 coord = gl_PointCoord - vec2(0.5);
+    if(length(coord) > 0.5)
         discard;
-    FragColor = particleColor;
+    
+    // Smooth fade at edges
+    float alpha = 1.0 - length(coord) * 2.0;
+    alpha = smoothstep(0.0, 1.0, alpha);
+    
+    FragColor = vec4(particleColor.rgb, particleColor.a * alpha);
 }
 )";
 
 // Function to find an unused particle
-int findUnusedParticle(const std::vector<Particle>& particles, int& lastUsedParticle); // Changed to int&
-void respawnParticle(Particle &particle, glm::vec2 offset = glm::vec2(0.0f, 0.0f));
+int findUnusedParticle(const std::vector<Particle>& particles, int& lastUsedParticle) {
+    for (int i = lastUsedParticle; i < MAX_PARTICLES; i++) {
+        if (particles[i].life <= 0.0f) {
+            lastUsedParticle = i;
+            return i;
+        }
+    }
+    for (int i = 0; i < lastUsedParticle; i++) {
+        if (particles[i].life <= 0.0f) {
+            lastUsedParticle = i;
+            return i;
+        }
+    }
+    return -1; // All particles are alive
+}
+
+void respawnParticle(Particle &particle, glm::vec2 offset = glm::vec2(0.0f, 0.0f)) {
+    float random = ((rand() % 100) - 50) / 10.0f;
+    float rColor = 0.5f + ((rand() % 100) / 100.0f);
+    
+    particle.position = glm::vec2(0.0f, -0.8f) + offset;
+    particle.velocity = glm::vec2(random, 1.0f + (rand() % 50) / 10.0f);
+    particle.color = glm::vec4(rColor, rColor * 0.5f, 0.2f, 1.0f);
+    particle.life = 3.0f; // Particle lives for 3 seconds
+    particle.size = 15.0f + (rand() % 10);
+}
 
 int main()
 {
+    // Initialize random seed
+    srand(static_cast<unsigned int>(time(nullptr)));
+
     // Init GLFW
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
@@ -88,6 +123,13 @@ int main()
     }
 
     glViewport(0, 0, WIDTH, HEIGHT);
+    
+    // Enable blending for transparency
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    // Enable point size control in shaders
+    glEnable(GL_PROGRAM_POINT_SIZE);
 
     // Build and compile our shader program
     // Vertex shader
@@ -101,6 +143,7 @@ int main()
         glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
         std::cerr << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
     }
+    
     // Fragment shader
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
@@ -110,6 +153,7 @@ int main()
         glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
         std::cerr << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
     }
+    
     // Link shaders
     GLuint shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
@@ -124,124 +168,123 @@ int main()
     glDeleteShader(fragmentShader);
 
     // Particle data
-    const int MAX_PARTICLES = 2000;
-        std::vector<Particle> particles(MAX_PARTICLES);
-        int lastUsedParticle = 0;
-
-         0.5f, -0.5f, -0.5f,  0.0f, 0.5f, 1.0f,
-         0.5f,  0.5f, -0.5f,  0.5f, 0.5f, 1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 0.5f,
-        
-        // Left face (green)
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.5f,
-        -0.5f,  0.5f,  0.5f,  0.5f, 1.0f, 0.5f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-        
-        // Right face (yellow)
-         0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 0.5f,
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-        
-        // Top face (cyan)
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f,  0.5f, 1.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 1.0f,
-        
-        // Bottom face (magenta)
-        -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  1.0f, 0.5f, 1.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.5f,
-         0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f
-    };
+    std::vector<Particle> particles(MAX_PARTICLES);
+    int lastUsedParticle = 0;
     
-    // Indices for the cube faces
-    unsigned int indices[] = {
-        // Front face
-        0, 1, 2,   2, 3, 0,
-        // Back face
-        4, 5, 6,   6, 7, 4,
-        // Left face
-        8, 9, 10,  10, 11, 8,
-        // Right face
-        12, 13, 14, 14, 15, 12,
-        // Top face
-        16, 17, 18, 18, 19, 16,
-        // Bottom face
-        20, 21, 22, 22, 23, 20
-    };
-    
-    GLuint VAO, VBO, EBO;
+    // Create VAO and VBO for particles
+    GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
     
     glBindVertexArray(VAO);
-    
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    // Allocate space for particle data (position, color, size)
+    // Each particle has: 2 floats (position) + 4 floats (color) + 1 float (size) = 7 floats
+    glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * 7 * sizeof(GLfloat), NULL, GL_DYNAMIC_DRAW);
     
     // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)0);
     glEnableVertexAttribArray(0);
     
     // Color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
     
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    // Size attribute
+    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2);
     
+    glBindVertexArray(0);
+
     // Get uniform locations
-    GLint modelLoc = glGetUniformLocation(shaderProgram, "model");
-    GLint viewLoc = glGetUniformLocation(shaderProgram, "view");
     GLint projLoc = glGetUniformLocation(shaderProgram, "projection");
-    GLint timeLoc = glGetUniformLocation(shaderProgram, "time");
+    
+    // Create orthographic projection matrix
+    glm::mat4 projection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
+    
+    // Timing
+    float lastTime = 0.0f;
+    
+    // Particle vertex buffer data
+    std::vector<GLfloat> particle_vertex_buffer_data(MAX_PARTICLES * 7);
     
     // Game loop
     while (!glfwWindowShouldClose(window)) {
+        float currentTime = (float)glfwGetTime();
+        float deltaTime = currentTime - lastTime;
+        lastTime = currentTime;
+        
         glfwPollEvents();
         
         // Clear the screen
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClearColor(0.0f, 0.0f, 0.2f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        
+        // Generate new particles
+        int newParticles = (int)(deltaTime * 2000.0); // 2000 particles per second
+        for (int i = 0; i < newParticles; i++) {
+            int particleIndex = findUnusedParticle(particles, lastUsedParticle);
+            if (particleIndex != -1) {
+                respawnParticle(particles[particleIndex]);
+            }
+        }
+        
+        // Update all particles
+        int particlesCount = 0;
+        for (int i = 0; i < MAX_PARTICLES; i++) {
+            Particle& p = particles[i];
+            
+            if (p.life > 0.0f) {
+                // Decrease life
+                p.life -= deltaTime;
+                
+                if (p.life > 0.0f) {
+                    // Update particle physics
+                    p.velocity.y -= 9.81f * deltaTime * 0.5f; // Gravity
+                    p.position += p.velocity * deltaTime;
+                    
+                    // Update color (fade out)
+                    p.color.a = p.life / 3.0f;
+                    
+                    // Update size based on life
+                    p.size = 20.0f * (p.life / 3.0f);
+                    
+                    // Add particle to buffer
+                    particle_vertex_buffer_data[particlesCount * 7 + 0] = p.position.x;
+                    particle_vertex_buffer_data[particlesCount * 7 + 1] = p.position.y;
+                    particle_vertex_buffer_data[particlesCount * 7 + 2] = p.color.r;
+                    particle_vertex_buffer_data[particlesCount * 7 + 3] = p.color.g;
+                    particle_vertex_buffer_data[particlesCount * 7 + 4] = p.color.b;
+                    particle_vertex_buffer_data[particlesCount * 7 + 5] = p.color.a;
+                    particle_vertex_buffer_data[particlesCount * 7 + 6] = p.size;
+                    
+                    particlesCount++;
+                } else {
+                    p.color.a = 0.0f;
+                }
+            }
+        }
         
         // Use shader program
         glUseProgram(shaderProgram);
         
-        // Get time for animations
-        float timeValue = (float)glfwGetTime();
-        glUniform1f(timeLoc, timeValue);
-        
-        // Create transformation matrices
-        glm::mat4 model = glm::mat4(1.0f);
-        glm::mat4 view = glm::mat4(1.0f);
-        glm::mat4 projection = glm::mat4(1.0f);
-        
-        // Rotate the cube
-        model = glm::rotate(model, timeValue * glm::radians(50.0f), glm::vec3(1.0f, 0.5f, 0.0f));
-        model = glm::rotate(model, timeValue * glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        
-        // Move the cube away from camera
-        view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-        
-        // Create perspective projection
-        projection = glm::perspective(glm::radians(45.0f), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
-        
-        // Pass matrices to shaders
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+        // Pass projection matrix to shader
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
         
-        // Draw the cube
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
+        // Render particles
+        if (particlesCount > 0) {
+            glBindVertexArray(VAO);
+            
+            // Update VBO with new particle data
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, particlesCount * 7 * sizeof(GLfloat), particle_vertex_buffer_data.data());
+            
+            // Draw particles as points
+            glDrawArrays(GL_POINTS, 0, particlesCount);
+            
+            glBindVertexArray(0);
+        }
         
         glfwSwapBuffers(window);
     }
@@ -249,7 +292,6 @@ int main()
     // Cleanup
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
     glDeleteProgram(shaderProgram);
     
     glfwTerminate();
