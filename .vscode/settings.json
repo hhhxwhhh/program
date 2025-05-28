@@ -82,7 +82,8 @@
     "random": "cpp",
     "numbers": "cpp",
     "ranges": "cpp",
-    "cinttypes": "cpp"
+    "cinttypes": "cpp",
+    "ctime": "cpp"
   },
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",
