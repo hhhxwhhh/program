@@ -7,17 +7,32 @@
 using namespace std;
 
 // 🎨 修改着色器源码 - 添加时间uniform
-const char* vertexShaderSource = R"(
+const char *vertexShaderSource = R"(
 #version 430 core
 layout (location = 0) in vec3 aPos;
 
 out vec3 vertexColor;
 
 uniform float time;  // 时间uniform
-
+uniform vec2  offset;// 偏移uniform
+uniform vec2  scale;// 缩放uniform
 void main()
 {
-    gl_Position = vec4(aPos, 1.0);
+    vec3 pos=aPos;
+    //缩放scale
+    if(scale.x !=0.0 && scale.y !=0.0)
+    {
+        pos.x*=scale.x;
+        pos.y*=scale.y;
+    }
+    //增加偏移offset
+    if(offset.x!=0.0 || offset.y!=0.0)
+    {
+        pos.x+=offset.x;
+        pos.y+=offset.y;
+    }
+    
+    gl_Position = vec4(pos, 1.0);
     
     // 基于时间和顶点位置计算动态颜色
     float r = 0.5 + 0.5 * sin(time * 2.0 + aPos.x * 3.14159);
@@ -201,10 +216,28 @@ int main()
     
     // 🎯 获取uniform位置
     int timeLocationVertex = glGetUniformLocation(shader_program_id, "time");
-    if(timeLocationVertex == -1) {
+    int offsetLocation = glGetUniformLocation(shader_program_id, "offset");
+    int scaleLocation= glGetUniformLocation(shader_program_id, "scale");
+    if(timeLocationVertex == -1) 
+    {
         cout << "Warning: Could not find 'time' uniform in vertex shader" << endl;
     }
-    
+    if(offsetLocation==-1)
+    {
+        cout << "Warning: Could not find 'offset' uniform in vertex shader" << endl;
+    }
+    if(scaleLocation==-1)
+    {
+        cout << "Warning: Could not find 'scale' uniform in vertex shader" << endl;
+    }
+
+    //打印uniform位置和时间
+    cout << "Vertex shader 'time' uniform location: " << timeLocationVertex << endl;
+    cout << "Vertex shader 'offset' uniform location: " << offsetLocation << endl;
+    cout << "Vertex shader 'scale' uniform location: " << scaleLocation << endl;
+
+
+
     // 检查片段着色器中的time uniform
     glUseProgram(shader_program_id);  // 需要先使用程序
     int timeLocationFragment = glGetUniformLocation(shader_program_id, "time");
@@ -224,7 +257,31 @@ int main()
         
         // 🎨 获取当前时间
         float currentTime = static_cast<float>(glfwGetTime());
+        //设置缩放uniform
+        float scale_x = 1.0f + 0.5f * sin(currentTime * 0.5f);
+        float scale_y = 1.0f + 0.5f * cos(currentTime * 0.5f + 2.094f); // +2π/3
+        if(scaleLocation!=-1)
+        {
+            glUniform2f(scaleLocation, scale_x, scale_y);
+        }
+        else
+        {
+            cout << "Warning: 'scale' uniform not found in vertex shader" << endl;
+        }
+
         
+        // 🎯 设置时间偏移uniform
+        float offset_x=0.3f*sin(currentTime*0.5f);
+        float offset_y=0.3f*cos(currentTime*0.5f);
+        if(offsetLocation!=-1)
+        {
+            glUniform2f(offsetLocation, offset_x, offset_y);
+        }
+        else
+        {
+            cout << "Warning: 'offset' uniform not found in vertex shader" << endl;
+        }
+
         // 设置背景色 - 也可以基于时间变化
         float bgR = 0.1f + 0.1f * sin(currentTime * 0.5f);
         float bgG = 0.1f + 0.1f * sin(currentTime * 0.5f + 2.094f);
@@ -237,7 +294,8 @@ int main()
         glUseProgram(shader_program_id);
         
         // 🎯 传递时间uniform到着色器
-        if(timeLocationVertex != -1) {
+        if(timeLocationVertex != -1) 
+        {
             glUniform1f(timeLocationVertex, currentTime);
         }
         
@@ -253,8 +311,8 @@ int main()
     // 清理资源
     glDeleteProgram(shader_program_id);
     glDeleteBuffers(1, &VBO);
-    glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &EBO);
+    glDeleteVertexArrays(1, &VAO);
 
     //终止GLFW
     glfwTerminate();

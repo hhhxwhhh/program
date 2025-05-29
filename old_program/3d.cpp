@@ -42,7 +42,7 @@ void Draw3d(void)
 	GLfloat x, y, angle;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // 清除屏幕和深度缓存
 
-	glLoadIdentity();
+	glLoadIdentity(); 
 	// glPushMatrix();
 	glRotatef(xRot, 1.0f, 0.0f, 0.0f);
 	glRotatef(yRot, 0.0f, 1.0f, 0.0f);
