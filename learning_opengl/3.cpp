@@ -17,7 +17,7 @@ glm::vec3 trianglePosition(0.0f, 0.0f, 0.0f);
 glm::vec3 triangleColor(1.0f, 0.5f, 0.2f);
 bool autoRotate = false;
 bool wireframeMode = false;
-int shapeMode = 0; // 0=三角形, 1=正方形, 2=圆形, 3=星形
+int shapeMode = 3; // 0=三角形, 1=正方形, 2=圆形, 3=星形
 float animationSpeed = 1.0f;
 
 // 高级顶点着色器 - 支持变换和动画
