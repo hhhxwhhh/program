@@ -25,7 +25,7 @@
   "code-runner.runInTerminal": true,
   "code-runner.executorMap": {
     "c": "cd $dir && gcc $fileName -o $fileNameWithoutExt.exe -Wall -g -O2 -static-libgcc -std=c11 -fexec-charset=GBK && $dir$fileNameWithoutExt",
-    "cpp": "clear && cd $dir && g++ $fileName -o $fileNameWithoutExt.exe -Wall -g -O2 -I D:/Program/MinGW/include -L D:/Program/MinGW/lib/glew32s.lib -lopengl32 -lgdi32    -static-libgcc -std=c++11 -fexec-charset=GBK && $dir$fileNameWithoutExt"
+    "cpp": "clear && cd $dir && g++ *.cpp -o $fileNameWithoutExt.exe -Wall -g -O2 -I D:/Program/MinGW/include -L D:/Program/MinGW/lib/glew32s.lib -lopengl32 -lgdi32    -static-libgcc -std=c++11 -fexec-charset=GBK && $dir$fileNameWithoutExt"
   },
   "code-runner.saveFileBeforeRun": true,
   "code-runner.preserveFocus": true,
@@ -33,7 +33,6 @@
   "code-runner.ignoreSelection": true,
   "C_Cpp.clang_format_sortIncludes": true,
   "files.associations": {
-    "*.dbclient-js": "javascript",
     "array": "cpp",
     "atomic": "cpp",
     "*.tcc": "cpp",
@@ -72,17 +71,7 @@
     "sstream": "cpp",
     "stdexcept": "cpp",
     "streambuf": "cpp",
-    "typeinfo": "cpp",
-    "bit": "cpp",
-    "compare": "cpp",
-    "concepts": "cpp",
-    "functional": "cpp",
-    "iterator": "cpp",
-    "numeric": "cpp",
-    "random": "cpp",
-    "numbers": "cpp",
-    "ranges": "cpp",
-    "cinttypes": "cpp"
+    "typeinfo": "cpp"
   },
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",
