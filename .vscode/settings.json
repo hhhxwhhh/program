@@ -33,6 +33,7 @@
   "code-runner.ignoreSelection": true,
   "C_Cpp.clang_format_sortIncludes": true,
   "files.associations": {
+    "*.dbclient-js": "javascript",
     "array": "cpp",
     "atomic": "cpp",
     "*.tcc": "cpp",
@@ -71,7 +72,11 @@
     "sstream": "cpp",
     "stdexcept": "cpp",
     "streambuf": "cpp",
-    "typeinfo": "cpp"
+    "typeinfo": "cpp",
+    "random": "cpp",
+    "functional": "cpp",
+    "numeric": "cpp",
+    "ratio": "cpp"
   },
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",
