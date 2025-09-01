@@ -197,7 +197,7 @@ int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowSize(800, 600);
-    glutCreateWindow("纹理贴图旋转立方体");
+    glutCreateWindow("Cube Texture");
     
     init();
     
