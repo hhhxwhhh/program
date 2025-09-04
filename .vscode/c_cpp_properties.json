@@ -5,8 +5,9 @@
       "includePath": [
         "${workspaceFolder}/**",
         "D:/Program/MinGW/include",
-        "D:/Program/MinGW/include/glm"
-        
+        "D:/Program/MinGW/include/glm",
+        "D:/assimp_build/assimp/include",
+        "D:/assimp_build/assimp/build/include"
       ],
       //"compilerPath": "cl.exe",
       "cStandard": "${default}",

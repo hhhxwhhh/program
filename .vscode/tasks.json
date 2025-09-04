@@ -6,6 +6,8 @@
       "command": "g++", // 要使用的编译器，C++用g++
       "args": [
         "-D GLEW_STATIC",
+        "-ID:/assimp_build/assimp/include",
+        "-ID:/assimp_build/assimp/build/include",
         "${fileDirname}/${fileBasenameNoExtension}.cpp", // 当前文件的路径，VSC会自动替换成当前打开的文
         "-o", // 指定输出文件名，不加该参数则默认输出a.exe，Linux下默认a.out
         "${fileDirname}/${fileBasenameNoExtension}.exe",
@@ -13,6 +15,10 @@
         "D:/Program/MinGW/lib/libglfw3.a",
         "D:/Program/MinGW/lib/glad.a",
         "D:/Program/MinGW/lib/glew32s.lib",
+        "-LD:/assimp_build/assimp/build/lib",
+        "-LD:/assimp_build/assimp/build/lib", // 指定库文件路径
+        "-lassimp",
+        "-lz",
         "-lopengl32", //链接系统中的opengl32库
         "-lgdi32", //链接系统中的gdi32库
         //"-l",
