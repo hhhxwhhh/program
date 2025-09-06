@@ -55,8 +55,8 @@ void main()
     diffuse=objectColor*diffuse;
     // 镜面光
     vec3 viewDir = normalize(viewPos - FragPos);
-    vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float spec =pow(max(dot(norm,halfwayDir),0.0),32);
     vec3 specular = spec * lightColor;
     specular=objectColor*specular;
     // 最终颜色
