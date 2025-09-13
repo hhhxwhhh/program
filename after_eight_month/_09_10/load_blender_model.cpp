@@ -8,6 +8,8 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 using namespace std;
 
@@ -16,6 +18,7 @@ const char *vertexShaderSource = R"(
 
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNormal;
+layout(location = 2) in vec2 aTexCoord;
 
 uniform mat4 model;
 uniform mat4 view;
@@ -23,11 +26,13 @@ uniform mat4 projection;
 
 out vec3 Normal;
 out vec3 FragPos;
+out vec2 TexCoord;
 
 void main()
 {
     FragPos = vec3(model * vec4(aPos, 1.0));
     Normal = mat3(transpose(inverse(model))) * aNormal;
+    TexCoord = aTexCoord;
     gl_Position = projection * view * model * vec4(aPos, 1.0);
 }
 )";
@@ -38,11 +43,13 @@ out vec4 FragColor;
 
 in vec3 Normal;
 in vec3 FragPos;
+in vec2 TexCoord;
 
 uniform vec3 lightPos;
 uniform vec3 lightColor;
 uniform vec3 objectColor;
 uniform vec3 viewPos;
+uniform sampler2D ourTexture;
 
 void main()
 {
@@ -61,7 +68,7 @@ void main()
     vec3 specular = specularStrength * spec * lightColor;
 
     vec3 result = (ambient + diffuse + specular) * objectColor;
-    FragColor = vec4(result, 1.0);
+    FragColor = texture(ourTexture, TexCoord) * vec4(result, 1.0);
 }
 )";
 
@@ -69,6 +76,48 @@ struct Vertex
 {
     glm::vec3 Position;
     glm::vec3 Normal;
+    glm::vec2 TexCoords;
+};
+
+class Texture {
+public:
+    unsigned int id;
+    string type;
+    string path;
+    
+    Texture(const char* path, string type) {
+        this->type = type;
+        this->path = path;
+        
+        glGenTextures(1, &this->id);
+        glBindTexture(GL_TEXTURE_2D, this->id);
+        
+        // 设置纹理环绕和过滤方式
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        
+        // 加载图片
+        int width, height, nrChannels;
+        unsigned char *data = stbi_load(path, &width, &height, &nrChannels, 0);
+        if (data) {
+            GLenum format = GL_RGB;
+            if (nrChannels == 1)
+                format = GL_RED;
+            else if (nrChannels == 3)
+                format = GL_RGB;
+            else if (nrChannels == 4)
+                format = GL_RGBA;
+            
+            glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+            glGenerateMipmap(GL_TEXTURE_2D);
+        } else {
+            std::cout << "Failed to load texture: " << path << std::endl;
+        }
+        stbi_image_free(data);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
 };
 
 class Mesh
@@ -76,18 +125,28 @@ class Mesh
 public:
     vector<Vertex> vertices;
     vector<unsigned int> indices;
+    vector<Texture> textures;
     unsigned int vao;
 
-    Mesh(vector<Vertex> vertices, vector<unsigned int> indices)
+    Mesh(vector<Vertex> vertices, vector<unsigned int> indices, vector<Texture> textures)
     {
         this->indices = indices;
         this->vertices = vertices;
+        this->textures = textures;
 
         this->setupMesh();
     }
 
     void Draw()
     {
+        // 绑定纹理
+        for(unsigned int i = 0; i < textures.size(); i++)
+        {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, textures[i].id);
+        }
+        glActiveTexture(GL_TEXTURE0);
+        
         glBindVertexArray(this->vao);
         glDrawElements(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
@@ -106,10 +165,17 @@ private:
         glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(Vertex), &this->vertices[0], GL_STATIC_DRAW);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->indices.size() * sizeof(unsigned int), &this->indices[0], GL_STATIC_DRAW);
+        
+        // 位置属性
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+        // 法线属性
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
+        // 纹理坐标属性
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, TexCoords));
+        
         glBindVertexArray(0);
     }
 };
@@ -119,6 +185,7 @@ class Model
 public:
     vector<Mesh> meshes;
     string directory;
+    vector<Texture> textures_loaded;
 
     Model(const char *path)
     {
@@ -137,7 +204,7 @@ private:
     void loadModel(string path)
     {
         Assimp::Importer importer;
-        const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_GenNormals);
+        const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_FlipUVs);
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         {
             cout << "ERROR::ASSIMP::" << importer.GetErrorString() << endl;
@@ -164,6 +231,7 @@ private:
     {
         vector<Vertex> vertices;
         vector<unsigned int> indices;
+        vector<Texture> textures;
         
         for(unsigned int i = 0; i < mesh->mNumVertices; i++)
         {
@@ -185,6 +253,16 @@ private:
                 );
             }
             
+            // 纹理坐标
+            if(mesh->mTextureCoords[0]) {
+                vertex.TexCoords = glm::vec2(
+                    mesh->mTextureCoords[0][i].x,
+                    mesh->mTextureCoords[0][i].y
+                );
+            } else {
+                vertex.TexCoords = glm::vec2(0.0f, 0.0f);
+            }
+            
             vertices.push_back(vertex);
         }
         
@@ -198,7 +276,46 @@ private:
             }
         }
         
-        return Mesh(vertices, indices);
+        // 处理材质
+        if(mesh->mMaterialIndex >= 0)
+        {
+            aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
+            vector<Texture> diffuseMaps = this->loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
+            textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
+        }
+        
+        return Mesh(vertices, indices, textures);
+    }
+    
+    vector<Texture> loadMaterialTextures(aiMaterial *mat, aiTextureType type, string typeName)
+    {
+        vector<Texture> textures;
+        for(unsigned int i = 0; i < mat->GetTextureCount(type); i++)
+        {
+            aiString str;
+            mat->GetTexture(type, i, &str);
+            bool skip = false;
+            for(unsigned int j = 0; j < textures_loaded.size(); j++)
+            {
+                if(std::strcmp(textures_loaded[j].path.data(), str.C_Str()) == 0)
+                {
+                    textures.push_back(textures_loaded[j]);
+                    skip = true;
+                    break;
+                }
+            }
+            if(!skip)
+            {
+                // 处理纹理路径
+                string filename = string(str.C_Str());
+                filename = directory + "/" + filename;
+                
+                Texture texture(filename.c_str(), typeName);
+                textures.push_back(texture);
+                textures_loaded.push_back(texture);
+            }
+        }
+        return textures;
     }
 };
 
@@ -286,6 +403,9 @@ int main()
 
     // 创建着色器程序
     unsigned int shaderProgram = createShader();
+    
+    // 创建并绑定纹理
+    Texture ourTexture("D:/OpenGL/program/after_eight_month/_09_10/pic/1001_AlbedoBase.png", "texture_diffuse"); 
 
     // 加载模型
     Model ourModel("D:/OpenGL/program/after_eight_month/_09_10/car.obj");
@@ -328,6 +448,11 @@ int main()
         glUniform3f(glGetUniformLocation(shaderProgram, "lightColor"), 1.0f, 1.0f, 1.0f);
         glUniform3f(glGetUniformLocation(shaderProgram, "lightPos"), 2.0f, 2.0f, 2.0f);
         glUniform3f(glGetUniformLocation(shaderProgram, "viewPos"), 3.0f, 3.0f, 3.0f);
+        
+        // 绑定纹理到着色器
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, ourTexture.id);
+        glUniform1i(glGetUniformLocation(shaderProgram, "ourTexture"), 0);
         
         // 绘制模型
         ourModel.Draw();
